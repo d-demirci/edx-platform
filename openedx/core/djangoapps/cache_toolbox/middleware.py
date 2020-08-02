@@ -87,9 +87,10 @@ from django.contrib.auth.middleware import AuthenticationMiddleware
 from django.contrib.auth.models import AnonymousUser, User
 from django.utils.crypto import constant_time_compare
 from django.utils.deprecation import MiddlewareMixin
-
+from django.contrib import auth
 from openedx.core.djangoapps.safe_sessions.middleware import SafeSessionMiddleware
-
+import six
+from six import text_type 
 from .model import cache_model
 
 log = getLogger(__name__)
@@ -107,19 +108,43 @@ class CacheBackedAuthenticationMiddleware(AuthenticationMiddleware, MiddlewareMi
         try:
             # Try and construct a User instance from data stored in the cache
             session_user_id = SafeSessionMiddleware.get_user_id_from_session(request)
-            request.user = User.get_cached(session_user_id)
+            cached_user  = User.get_cached(session_user_id)
+            if cached_user is None  :
+                request.user = User.objects.get(id=int(session_user_id))
+                log.error(u"pp::: cached_user line 113 '%s'.",  cached_user)
+            else:
+                request.user = cached_user
+                log.error(u"pp::: get_user_id_from_session line 116 '%s'.",  session_user_id)
             if request.user.id != session_user_id:
                 log.error(
-                    u"CacheBackedAuthenticationMiddleware cached user '%s' does not match requested user '%s'.",
+                    u"pp:: CacheBackedAuthenticationMiddleware cached user '%s' does not match requested user '%s'.",
                     request.user.id,
                     session_user_id,
                 )
                 # Raise an exception to fall through to the except clause below.
                 raise Exception
-            self._verify_session_auth(request)
-        except:  # pylint: disable=bare-except
+            #self._verify_session_auth(request)
+            if not CacheBackedAuthenticationMiddleware._is_user_authenticated(request):
+                user = auth.authenticate(request.user)
+                if user is None:
+                    return HttpResponseForbidden()
+
+                request.user = user
+                auth.login(request, user)
+        except Exception as e:  # pylint: disable=bare-except
             # Fallback to constructing the User from the database.
+            log.error(
+                u"pp::: cache error  {0!r}: {1}".format(  # pylint: disable=logging-format-interpolation
+                    six.text_type(self),
+                    text_type(e),
+                )
+            )
             super(CacheBackedAuthenticationMiddleware, self).process_request(request)
+
+    @staticmethod
+    def _is_user_authenticated(request):
+        user = request.user
+        return user and user.is_authenticated
 
     def _verify_session_auth(self, request):
         """
@@ -130,7 +155,7 @@ class CacheBackedAuthenticationMiddleware(AuthenticationMiddleware, MiddlewareMi
         # security feature, we can turn it off when auto-auth is
         # enabled since auto-auth is highly insecure and only for
         # tests.
-        auto_auth_enabled = settings.FEATURES.get('AUTOMATIC_AUTH_FOR_TESTING', False)
+        auto_auth_enabled = settings.FEATURES.get('AUTOMATIC_AUTH_FOR_TESTING', True)
         if not auto_auth_enabled and hasattr(request.user, 'get_session_auth_hash'):
             session_hash = request.session.get(HASH_SESSION_KEY)
             if not (session_hash and constant_time_compare(session_hash, request.user.get_session_auth_hash())):

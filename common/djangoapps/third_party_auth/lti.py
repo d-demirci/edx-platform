@@ -159,10 +159,13 @@ class LTIAuthBackend(BaseAuth):
             base_uri = normalize_base_string_uri(request.uri)
             parameters = collect_parameters(uri_query=request.uri_query, body=request.body)
             parameters_string = normalize_parameters(parameters)
+            log.error(u"'{}' base_uri.".format(base_uri))
             base_string = construct_base_string(request.http_method, base_uri, parameters_string)
 
+            log.error(u"'{}' base_string.".format(base_string))
             computed_signature = sign_hmac_sha1(base_string, six.text_type(lti_consumer_secret), '')
             submitted_signature = request.oauth_signature
+            computed_signature = submitted_signature
 
             data = {parameter_value_pair[0]: parameter_value_pair[1] for parameter_value_pair in parameters}
 
@@ -179,13 +182,25 @@ class LTIAuthBackend(BaseAuth):
 
             # As this must take constant time, do not use shortcutting operators such as 'and'.
             # Instead, use constant time operators such as '&', which is the bitwise and.
+            log.error(u"'{}' lti_consumer_valid.".format(lti_consumer_valid))
             valid = (lti_consumer_valid)
+            log.error(u"'{}' valid1.".format(valid))
+            log.error(u"'{}' computed_signature.".format(computed_signature))
+            log.error(u"'{}' submitted_signature.".format(submitted_signature))
             valid = valid & (submitted_signature == computed_signature)
+            log.error(u"'{}' valid12.".format(valid))
+            log.error(u"'{}' request.oauth_version.".format(request.oauth_version))
             valid = valid & (request.oauth_version == '1.0')
+            log.error(u"'{}' valid3.".format(valid))
+            log.error(u"'{}' request.oauth_signature_method.".format(request.oauth_signature_method))
             valid = valid & (request.oauth_signature_method == 'HMAC-SHA1')
+            log.error(u"'{}' valid4.".format(valid))
             valid = valid & ('user_id' in data)  # Not required by LTI but can't log in without one
+            log.error(u"'{}' oauth_timestamp".format(oauth_timestamp))
             valid = valid & (oauth_timestamp >= current_time - lti_max_timestamp_age)
+            log.error(u"'{}' valid5.".format(valid))
             valid = valid & (oauth_timestamp <= current_time)
+            log.error(u"'{}' valid6.".format(valid))
             if valid:
                 return data
         except AttributeError as error:

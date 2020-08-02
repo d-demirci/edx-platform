@@ -654,7 +654,8 @@ MIDDLEWARE = [
     'method_override.middleware.MethodOverrideMiddleware',
 
     # Instead of AuthenticationMiddleware, we use a cache-backed version
-    'openedx.core.djangoapps.cache_toolbox.middleware.CacheBackedAuthenticationMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    #'openedx.core.djangoapps.cache_toolbox.middleware.CacheBackedAuthenticationMiddleware',
 
     'student.middleware.UserStandingMiddleware',
     'openedx.core.djangoapps.contentserver.middleware.StaticContentServer',
@@ -897,7 +898,7 @@ DEBUG = False
 SESSION_COOKIE_SECURE = False
 SESSION_SAVE_EVERY_REQUEST = False
 SESSION_SERIALIZER = 'openedx.core.lib.session_serializers.PickleSerializer'
-SESSION_COOKIE_DOMAIN = ""
+SESSION_COOKIE_DOMAIN = ".p1ngp0ng.net"
 SESSION_COOKIE_NAME = 'sessionid'
 
 # Site info
